@@ -1,26 +1,28 @@
 import math
-import multiprocessing as mp
 import random as rd
 import numpy as np
 import csv
 import copy
 import time
+import matplotlib.pyplot as plt
 
 
 def check(question: str, group: list):
     #to make sure an input doesnt break the game
     while True:
-        ans = int(input(question))
-        if ans in group:
+        ans = input(question)
+        if ans == "q":
             return ans
+
+        if int(ans) in group:
+            return int(ans)
         else:
             print("that square/grid has already been filled.") 
 
 
 class grid:
     
-    def referee(self): #broken :sadge:
-
+    def referee(self): #broken again :sadge:
         original = copy.copy(self.winner)
 
         if self.winner == 0:
@@ -30,27 +32,28 @@ class grid:
                     if i.winner == 0:
                         i.referee()
 
-            #checking to see who won on a large/small board
-
+            #checking to see who won on a large/small board 
             board = copy.copy(self.board) if isinstance(self, small_grid) else np.array([x.winner for x in self.board.flat]).reshape((3, 3))
 
-            if list(board.flat).count(1)>2 or list(board.flat).count(2)>2: #more than 2 of either X or O
+            if list(board.flat).count(1)>2 or list(board.flat).count(2)>2 or not any(x==0 for x in board.flat): #more than 2 of either X or O
                 for i in range(2): 
                     #for wins/losses
-                    l = board.T if i else board #turns 90 degees on second iteration
+                    if i == 1:
+                        board = np.rot90(board) #turns 90 degees on second iteration
                     #regular lines |||
-                    if all(x == l[0, 0] for x in l[0]) and l[0, 0] != 0 and l[0, 0] != 3:
-                        self.winner = l[0, 0]
+                    diag = np.diagonal(board)
+                    if all(x == board[0, 0] for x in board[0]) and board[0, 0] != 0 and board[0, 0] != 3:
+                        self.winner = board[0, 0]
                     
-                    elif all(x == l[1, 0] for x in l[1]) and l[1, 0] != 0 and l[1, 0] != 3:
-                        self.winner = l[1, 0]
+                    elif all(x == board[1, 0] for x in board[1]) and board[1, 0] != 0 and board[1, 0] != 3:
+                        self.winner = board[1, 0]
 
-                    elif all(x == l[2, 0] for x in l[2]) and l[2, 0] != 0 and l[2, 0] != 3:
-                        self.winner = l[2, 0]
+                    elif all(x == board[2, 0] for x in board[2]) and board[2, 0] != 0 and board[2, 0] != 3:
+                        self.winner = board[2, 0]
 
                     #diagonal line /
-                    elif all(x == l.diagonal()[0] for x in l.diagonal()) and l.diagonal()[0] != 0:
-                        self.winner = l.diagonal()[0]
+                    elif all(x == diag[0] for x in diag) and diag[0] != 0:
+                        self.winner = diag[0]
 
                 if isinstance(self, small_grid): #to see if small boards are tied
                     if self.winner == 0:
@@ -59,14 +62,15 @@ class grid:
 
             if isinstance(self, large_grid):
                 if self.winner != 1 and self.winner != 2: #if no one won
-                    test_grid = grid()
-                    test_grid.winner = 0
+                    test_grid = small_grid(None, 0)
+                    count = 0
                     for num in (1, 2):
-                        test_grid.board = np.array([x if x != 0 else num for x in self.board.flat]).reshape((3, 3))
+                        test_grid.board = np.array([sb.winner if sb.winner != 0 else num for sb in self.board.flat]).reshape((3, 3))
                         test_grid.referee()
                         if test_grid.winner == 3:
-                            self.winner = 3
-                            break
+                            count += 1
+                    if count == 2:
+                        self.winner = 3
 
 
         if isinstance(self, small_grid):
@@ -77,16 +81,18 @@ class grid:
                                     
 
 class large_grid(grid):
-    def __init__(self):
+    def __init__(self, file_name=None):
         self.winner = 0
         self.board = np.array([small_grid(self, i) for i in range(9)]).reshape(3, 3)
         self.active_grid = self.board[1, 1]
+        if file_name != None:
+            self.from_file(file_name)
     
     def from_file(self, file_name): 
         #used to start the game from a certain point
         with open(file_name, "r") as f:
             cf = [x for x in csv.reader(f)]  #file syntax: 9x9 grid plus the starting grid in csv format
-            self.active_grid = self.board.flat[int(cf[-1][0])-1]
+            self.active_grid = self.board.flat[int(cf[-1][0])]
 
             for a in self.board:
                 for smb in a:
@@ -109,9 +115,21 @@ class large_grid(grid):
 
     
     def add(self, move, player):
-        self.board[move[0]].board[move[1]] = player
-        self.active_grid = self.board[move[1]]
-        return self
+        self.board[move[0]].referee()
+        if self.board[move[0]].winner == 0:
+            self.board[move[0]].board[move[1]] = player
+            self.active_grid = self.board[move[1]]
+            return self
+        else:
+            raise AssertionError
+    
+    def switch(self):
+        for sb in self.board.flat:
+            for num in range(9):
+                if sb.board.flat[num] != 0:
+                    sb.board.flat[num] = abs(sb.board.flat[num]-2)+1
+
+
 
 
 
@@ -126,24 +144,36 @@ class small_grid(grid):
     
     def moves(self):
         #moves a player could make on this small board
-        indexes = np.where(self.board.flat[:]==0)
-        self.possible_moves = [[self.coords, (i//3, i%3)] for i in [x.tolist() for x in indexes][0]]
+        self.referee()
+        if self.winner == 0:
+            indexes = np.where(self.board.flat[:]==0)
+            self.possible_moves = [[self.coords, (i//3, i%3)] for i in [x.tolist() for x in indexes][0]]
+        else:
+            self.possible_moves = []
         return self.possible_moves
         
 
 
 
 class parent_node:
-    def __init__(self, lg):
+    #needs to account for when the move could be on any square
+    def __init__(self, lg, create=True):
         self.sim_num = 0
         self.wins = 0
-        
+        self.successor = None
         self.children = []
+        self.lg = lg
 
-        for i in lg.active_grid.moves():
-            lg_copy = copy.deepcopy(lg)
-            lg_copy.add(i, 2)
-            self.children.append(node(lg_copy, 2, self, i))
+        if create:
+            if lg.active_grid.moves() != []:
+                group = lg.active_grid.possible_moves
+            else:
+                group = [x for y in lg.board.flat for x in y.moves() if y.winner == 0]
+            for i in group:
+                lg_copy = copy.deepcopy(lg)
+                lg_copy.add(i, 2)
+                self.children.append(node(lg_copy, 2, self, i))
+                
         
     def distribute(self, outcome):
         if outcome == 2:
@@ -153,20 +183,55 @@ class parent_node:
         self.sim_num += 1
 
     def choose(self):
+    
         for child in self.children:
             child.MCTS()
+
+        for child in self.children:
+            child.MCTS()
+            child.board.referee()
+            if child.board.winner == 2:
+                time.sleep(1) # for effect
+                v = sorted(self.successor.children, key=lambda x:x.value)
+                self.value = [self.wins/self.sim_num, (v[0].value, v[-1].value)]
+                return child.move   
         
-        for i in range(300):
+        num = (30 if len(self.children) < 10 else 45)
+        self.lg.to_file("error.csv")
+        st = time.time()
+        while time.time()-st < num:
             child = sorted(self.children, key=lambda x:x.pickrate)[-1]
             child.MCTS()
         
-        self.value = self.wins/self.sim_num
-
-        return sorted(self.children, key=lambda x:x.value)[-1].move
-
-
-        
-
+        self.successor = sorted(self.children, key=lambda x:x.value)[-1]
+        v = sorted(self.successor.children, key=lambda x:x.value)
+        self.value = [self.wins/self.sim_num, (v[0].value, v[-1].value)]
+        return self.successor.move
+    
+    def new_parent(self, lg):
+        for n in self.successor.children:
+            n.board.to_file("Mttt_inputs.csv")
+            if [x for sb in lg.board.flat for x in sb.board.flat] == [x for sb in n.board.board.flat for x in sb.board.flat]:
+                pn = parent_node(lg, False)
+                if len(n.children) != 0:
+                    pn.children = n.children
+                    for child in pn.children:
+                        child.parent = pn
+                else:
+                    if lg.active_grid.moves() != []:
+                        group = lg.active_grid.possible_moves
+                    else:
+                        group = [x for y in lg.board.flat for x in y.moves() if y.winner == 0]
+                    for i in group:
+                        lg_copy = copy.deepcopy(lg)
+                        lg_copy.add(i, 2)
+                        pn.children.append(node(lg_copy, 2, pn, i))
+                pn.sim_num = n.sim_num
+                pn.wins = n.wins
+                return pn
+        pn = parent_node(lg)
+        return pn
+    
 
 
 class node:
@@ -181,12 +246,13 @@ class node:
         self.board = board
         self.children = []
         self.side = side
+        self.best_move = None
 
 
     def calibrate(self):
         #puts values up to date (most importantly the pickrate)
         self.value = self.wins/self.sim_num
-        self.pickrate = self.value + math.sqrt(math.log(self.parent.sim_num)/self.sim_num)**1/2 #1/2 == c
+        self.pickrate = self.value + math.sqrt(math.log(self.parent.sim_num)/self.sim_num)
 
 
     def distribute(self, outcome):
@@ -208,12 +274,14 @@ class node:
         if self.sim_num == 0: #random choices
             self.board.referee()
             order = [1, 2] if self.side == 2 else [2, 1] #order changes because it's the opposite player's turn
-            c = 1
+            count = 1
             nb = copy.deepcopy(self.board)
             
             while nb.winner == 0: # while game is ongoing
-                c += 1
-                if c == 100:
+                count += 1
+                if count == 100:
+                    nb.to_file("error.csv")
+                    nb.referee()
                     raise ValueError
                 
                 for num in order: 
@@ -250,14 +318,27 @@ class node:
                 if self.sim_num == 1:
                     if self.board.active_grid.winner == 0:
                         for i in self.board.active_grid.moves():
-                            new_board = copy.deepcopy(self.board.add(i, abs(self.side-2)+1))
-                            self.children.append(node(new_board, abs(self.side-2)+1, self, None)) #creates new child nodes
+                            new_board = copy.deepcopy(self.board)
+                            new_board.add(i, abs(self.side-2)+1)
+                            self.children.append(node(new_board, abs(self.side-2)+1, self, i)) #creates new child nodes
                     else:
                         for i in [x for y in self.board.board.flat for x in y.moves() if y.winner == 0]:
-                            new_board = copy.deepcopy(self.board.add(i, abs(self.side-2)+1))
-                            self.children.append(node(new_board, abs(self.side-2)+1, self, None)) #creates new child nodes
+                            new_board = copy.deepcopy(self.board)
+                            new_board.add(i, abs(self.side-2)+1)
+                            self.children.append(node(new_board, abs(self.side-2)+1, self, i)) #creates new child nodes
+                child = None
+                if self.sim_num == 2:
+                    for i in self.children:
+                        i.board.referee()
+                        if i.board.winner == abs(self.side-2)+1:
+                            child = i
+                            self.best_move = i
+                            break
+                
+                if self.best_move != None and child == None:
+                    child = self.best_move
 
-                if all(x.sim_num > 0 for x in self.children):
+                elif all(x.sim_num > 0 for x in self.children):
                     for child in self.children:
                         child.calibrate()
                     child = sorted(self.children, key=lambda x:x.pickrate)[-1]
@@ -278,34 +359,72 @@ def game(file_name=None):
         #if the game starts from a specific time
         lg.from_file(file_name)
         with open(file_name, "r") as f:
-            start = int([x for x in csv.reader(f)][-1][0])-1
+            start = int([x for x in csv.reader(f)][-1][0])
             lg.active_grid = lg.board.flat[start]
 
-    for sg in lg.board.flat:
-        sg.referee()
     lg.referee()
-
+    pn = None
+    difficulty = check("would you like to go first? (1 for yes and 2 for no): ", [1, 2])
+    data = []
+    rerun = False
+    data2 = [] #best and worst moves
+    count = 1
 
     while lg.winner == 0: #until game ends
-        
-        if lg.active_grid.winner != 0:
-            tr_grids = [x[0][0]*3+x[0][1] for x in lg.board.flat if x.moves() != []]
-            player_move1 = check("choose a section of the board (out of 9):", tr_grids)-1
-            lg.active_grid = lg.board.flat[player_move1]
-        
-        tr_moves = [x[1][0]*3+x[1]+1 for x in lg.active_grid.moves()]
-        player_move = check("choose a square in section {} (out of 9):".format(lg.active_grid.coords[0]*3+lg.active_grid.coords[1]), tr_moves)-1
-        lg.add([lg.active_grid.coords, (player_move//3, player_move%3)], 1)
+        if difficulty == 1 or rerun == True:
+            if lg.active_grid.winner != 0:
+                tr_grids = [x.coords[0]*3+x.coords[1]+1 for x in lg.board.flat if x.moves() != []]
+                player_move1 = check("choose a section of the board (out of 9): ", tr_grids)-1
+                lg.active_grid = lg.board.flat[player_move1]
+                
+            tr_moves = [x[1][0]*3+x[1][1]+1 for x in lg.active_grid.moves()]
+            player_move = check("choose a square in section {} (out of 9): ".format(lg.active_grid.coords[0]*3+lg.active_grid.coords[1]+1), tr_moves)-1
+            
+            
+            if player_move == "q":
+                break
+            
+            
+            lg.add([lg.active_grid.coords, (player_move//3, player_move%3)], 1)
+            lg.to_file("current_board.csv")
 
-        cpm = parent_node(lg).choose()
-        print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][0]+1, cpm[0][0]*3+cpm[0][1]+1))
-        lg.active_grid.add(cpm, 2)
-        
+            lg.referee()
+            if lg.winner != 0:
+                break
+        else:
+            rerun = True
+
+        if pn == None:
+            pn = parent_node(lg)
+        else:
+            pn = pn.new_parent(lg)
+        cpm = pn.choose()
+        count += 1
+        data.append(100-int(pn.value[0]*100))
+        data2.append([(count, count), (100-int(pn.value[1][0]*100), 100-int(pn.value[1][1]*100))])
+
+        print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
+        lg.add(cpm, 2)
+        lg.to_file("current_board.csv")
+
         lg.referee()
+
+    a = True
+    for i in data2:
+        if a:
+            a = False
+            plt.plot(i[0], i[1], color="green", marker="o", label="max/min potential score at each turn", linestyle="--")
+        else:
+            plt.plot(i[0], i[1], color="green", marker="o", linestyle="--")
+    plt.plot(data, color="black", label="Player's actual heuristic score", marker="o")
+    plt.axis([1, len(data)-1, 1, 100])
     
-    else:
-        print("game has already finished!")
-    
+    plt.ylabel("Heuristic score for player (max: 100 min: 1)")
+    plt.xlabel("Player turns")
+    plt.suptitle("Heuristic score over the course of the game")
+    plt.legend()
+    plt.show()
+
     if lg.winner == 1:
         return "X"
     elif lg.winner == 2:
@@ -313,42 +432,6 @@ def game(file_name=None):
     else:
         return "Tie"
 
-def test():
-    lg = large_grid()
-    c = 0
-    lg.referee()
-    while True:
-        c+=1
-        if c > 42:
-            print(lg.winner)
-            raise ValueError
-        
-        if lg.active_grid.winner == 0:
-            lg.add(rd.choice(lg.active_grid.moves()), 1)
-        else:
-            lg.add(rd.choice([y for x in lg.board.flat for y in x.moves() if x.winner == 0]), 1)
-        lg.referee()
-        if lg.winner != 0:
-            break
-        print("start")
-        start_time = time.time()
-        lg.add(parent_node(lg).choose(), 2)
-        print(time.time()-start_time)
-
-        lg.to_file("Mttt_inputs.csv")
-        lg.referee()
-        if lg.winner != 0:
-            break
-
-    print(lg.winner)
-
-test()
-    
 
 
-#things to do:
-# - learn about multithreading
-# - create the MCTS algotithm
-# - make the algorithm take a certain time or how long the player takes to act
-# - use multithreading to make ^ happen and distribute load to other cpus
-# - make it play against a player that chooses randomly to see what the best pickrate is
+print(game())
