@@ -20,6 +20,9 @@ Game play ends when either a player wins the global board or there are no legal 
 How to use the program:
 - Run the program
 - Input text boxes will start to appear
+- When it asks if you want to play with file mode, it means that all moves will appear on a file named
+  "current_board.csv", with the "1"s being the player's moves, the "2"s being the program's moves and "0"s being empty spaces
+- If playing with file mode, make sure not to edit "current_board.csv".
 - When the input box asks for a number between 1 and 9, it refers to an area on a local or global board, and the numbers are 
   attributed to a specific part of the board like so:
 
@@ -27,6 +30,7 @@ How to use the program:
 4 5 6
 7 8 9
 
+- When you input your move or when the program outputs its move, write it down on a piece of paper (unless if you are playing with file mode)
 - If you would like to end the game prematurely you may do so by inputting 'q'
 
 
