@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 
 
 def check(question: str, group: list):
-    #to make sure an input doesnt break the game
+
+    '''Checks to see if user inputs are valid.'''
+    
     while True:
         ans = input(question)
         if ans == "q":
@@ -22,7 +24,10 @@ def check(question: str, group: list):
 
 class grid:
     
-    def referee(self): #broken again :sadge:
+    def referee(self): 
+
+        '''Checks to see if someone won the game, and if so, who.'''
+
         original = copy.copy(self.winner)
 
         if self.winner == 0:
@@ -81,15 +86,18 @@ class grid:
                                     
 
 class large_grid(grid):
+    
+    '''A global grid object.'''
+
     def __init__(self, file_name=None):
         self.winner = 0
         self.board = np.array([small_grid(self, i) for i in range(9)]).reshape(3, 3)
-        self.active_grid = self.board[1, 1]
+        self.active_grid = None
         if file_name != None:
             self.from_file(file_name)
     
-    def from_file(self, file_name): 
-        #used to start the game from a certain point
+    def from_file(self, file_name): #only for testing
+        '''Used to start the game from a certain point.'''
         with open(file_name, "r") as f:
             cf = [x for x in csv.reader(f)]  #file syntax: 9x9 grid plus the starting grid in csv format
             self.active_grid = self.board.flat[int(cf[-1][0])]
@@ -102,8 +110,8 @@ class large_grid(grid):
                             smb.board[num1, num2] = cf[num1+smb.coords[0]*3][num2+smb.coords[1]*3]
     
 
-    def to_file(self, file_name):
-
+    def to_file(self, file_name): 
+        '''Used to translate the grid object to a readable file.'''
         with open(file_name, "w") as f:
             for large_line in self.board:
                 for num in range(3):
@@ -115,6 +123,7 @@ class large_grid(grid):
 
     
     def add(self, move, player):
+        '''Adds a move to the board.'''
         self.board[move[0]].referee()
         if self.board[move[0]].winner == 0:
             self.board[move[0]].board[move[1]] = player
@@ -123,7 +132,7 @@ class large_grid(grid):
         else:
             raise AssertionError
     
-    def switch(self):
+    def switch(self): #obsolete
         for sb in self.board.flat:
             for num in range(9):
                 if sb.board.flat[num] != 0:
@@ -135,6 +144,9 @@ class large_grid(grid):
 
 
 class small_grid(grid):
+
+    '''A local grid object.'''
+
     def __init__(self, parent, num):
         self.parent = parent
         self.coords = (num//3, num%3)
@@ -143,7 +155,7 @@ class small_grid(grid):
         self.winner = 0
     
     def moves(self):
-        #moves a player could make on this small board
+        '''Determines the moves a player could make on this specific local board'''
         self.referee()
         if self.winner == 0:
             indexes = np.where(self.board.flat[:]==0)
@@ -156,7 +168,9 @@ class small_grid(grid):
 
 
 class parent_node:
-    #needs to account for when the move could be on any square
+
+    '''Starting point for the tree search.'''
+
     def __init__(self, lg, create=True):
         self.sim_num = 0
         self.wins = 0
@@ -183,6 +197,8 @@ class parent_node:
         self.sim_num += 1
 
     def choose(self):
+
+        '''Chooses the best move out of the computer's possible moves.'''
     
         for child in self.children:
             child.MCTS()
@@ -192,12 +208,11 @@ class parent_node:
             child.board.referee()
             if child.board.winner == 2:
                 time.sleep(1) # for effect
-                v = sorted(self.successor.children, key=lambda x:x.value)
+                v = sorted(self.children, key=lambda x:x.value)
                 self.value = [self.wins/self.sim_num, (v[0].value, v[-1].value)]
                 return child.move   
         
         num = (30 if len(self.children) < 10 else 45)
-        self.lg.to_file("error.csv")
         st = time.time()
         while time.time()-st < num:
             child = sorted(self.children, key=lambda x:x.pickrate)[-1]
@@ -209,8 +224,10 @@ class parent_node:
         return self.successor.move
     
     def new_parent(self, lg):
+
+        '''Creates a new parent while keeping the relevant nodes from the old one.'''
+
         for n in self.successor.children:
-            n.board.to_file("Mttt_inputs.csv")
             if [x for sb in lg.board.flat for x in sb.board.flat] == [x for sb in n.board.board.flat for x in sb.board.flat]:
                 pn = parent_node(lg, False)
                 if len(n.children) != 0:
@@ -250,12 +267,15 @@ class node:
 
 
     def calibrate(self):
-        #puts values up to date (most importantly the pickrate)
+        '''Puts values up to date (most importantly the pickrate).'''
         self.value = self.wins/self.sim_num
         self.pickrate = self.value + math.sqrt(math.log(self.parent.sim_num)/self.sim_num)
 
 
     def distribute(self, outcome):
+
+        '''Used for the backpropagation step of Monte Carlo tree search.'''
+
         if outcome == 2: #computer wins
             if self.side == 2:
                 self.wins += 1
@@ -271,7 +291,9 @@ class node:
 
     def MCTS(self):
 
-        if self.sim_num == 0: #random choices
+        '''Preforms the first three steps of the Monte Carlo tree search process.'''
+
+        if self.sim_num == 0: #step 3: Simulation
             self.board.referee()
             order = [1, 2] if self.side == 2 else [2, 1] #order changes because it's the opposite player's turn
             count = 1
@@ -280,7 +302,6 @@ class node:
             while nb.winner == 0: # while game is ongoing
                 count += 1
                 if count == 100:
-                    nb.to_file("error.csv")
                     nb.referee()
                     raise ValueError
                 
@@ -315,7 +336,7 @@ class node:
                             
         else: 
             if self.board.winner == 0:     
-                if self.sim_num == 1:
+                if self.sim_num == 1: #Step 2: Expansion
                     if self.board.active_grid.winner == 0:
                         for i in self.board.active_grid.moves():
                             new_board = copy.deepcopy(self.board)
@@ -326,6 +347,8 @@ class node:
                             new_board = copy.deepcopy(self.board)
                             new_board.add(i, abs(self.side-2)+1)
                             self.children.append(node(new_board, abs(self.side-2)+1, self, i)) #creates new child nodes
+                
+                #Step 1: Selection
                 child = None
                 if self.sim_num == 2:
                     for i in self.children:
@@ -364,6 +387,7 @@ def game(file_name=None):
 
     lg.referee()
     pn = None
+    file_mode = check("would you like to play with file mode? (1 for yes and 2 for no): ", [1, 2]) == 1
     difficulty = check("would you like to go first? (1 for yes and 2 for no): ", [1, 2])
     data = []
     rerun = False
@@ -371,8 +395,13 @@ def game(file_name=None):
     count = 1
 
     while lg.winner == 0: #until game ends
-        if difficulty == 1 or rerun == True:
-            if lg.active_grid.winner != 0:
+        if rerun == True or difficulty == 1:
+            if lg.active_grid == None:
+                tr_grids = [x.coords[0]*3+x.coords[1]+1 for x in lg.board.flat if x.moves() != []]
+                player_move1 = check("choose a section of the board (out of 9): ", tr_grids)-1
+                lg.active_grid = lg.board.flat[player_move1]
+
+            elif lg.active_grid.winner != 0:
                 tr_grids = [x.coords[0]*3+x.coords[1]+1 for x in lg.board.flat if x.moves() != []]
                 player_move1 = check("choose a section of the board (out of 9): ", tr_grids)-1
                 lg.active_grid = lg.board.flat[player_move1]
@@ -386,28 +415,37 @@ def game(file_name=None):
             
             
             lg.add([lg.active_grid.coords, (player_move//3, player_move%3)], 1)
-            lg.to_file("current_board.csv")
+            if file_mode:
+                lg.to_file("current_board.csv")
 
             lg.referee()
             if lg.winner != 0:
                 break
+            
+            if pn == None:
+                pn = parent_node(lg)
+            else:
+                pn = pn.new_parent(lg)
+            cpm = pn.choose()
+            count += 1
+            data.append(100-int(pn.value[0]*100))
+            data2.append([(count, count), (100-int(pn.value[1][0]*100), 100-int(pn.value[1][1]*100))])
+
+            print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
+            lg.add(cpm, 2)
+            if file_mode:
+                lg.to_file("current_board.csv")
+
+            lg.referee()
+        
         else:
+            time.sleep(2) #so it looks like it's thinking
             rerun = True
+            cpm = rd.choice([x for x in lg.board[1, 1].moves() if x[1] != [1, 1]])
+            print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
+            lg.add(cpm, 2)
 
-        if pn == None:
-            pn = parent_node(lg)
-        else:
-            pn = pn.new_parent(lg)
-        cpm = pn.choose()
-        count += 1
-        data.append(100-int(pn.value[0]*100))
-        data2.append([(count, count), (100-int(pn.value[1][0]*100), 100-int(pn.value[1][1]*100))])
 
-        print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
-        lg.add(cpm, 2)
-        lg.to_file("current_board.csv")
-
-        lg.referee()
 
     a = True
     for i in data2:
@@ -426,9 +464,9 @@ def game(file_name=None):
     plt.show()
 
     if lg.winner == 1:
-        return "X"
+        return "Player wins."
     elif lg.winner == 2:
-        return "O"
+        return "Computer wins."
     else:
         return "Tie"
 
