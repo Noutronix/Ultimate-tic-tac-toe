@@ -22,7 +22,7 @@ How to use the program:
 - Run the program.
 - Input text boxes will start to appear.
 - When it asks if you want to play with file mode, it means that all moves will appear on a file named
-  "current_board.csv", with the "1"s being the player's moves, the "2"s being the program's moves and "0"s being empty spaces.
+  "current_board.csv", with the "1"s being the player's moves, the "2"s being the program's moves and "0"s being empty spaces (I do not reccomend it for approchability reasons).
 - If playing with file mode, make sure not to edit "current_board.csv".
 - When the input box asks for a number between 1 and 9, it refers to an area on a local or global board, and the numbers are 
   attributed to a specific part of the board like so:
