@@ -391,7 +391,6 @@ def game(file_name=None):
     difficulty = check("would you like to go first? (1 for yes and 2 for no): ", [1, 2])
     data = []
     rerun = False
-    data2 = [] #best and worst moves
     count = 1
 
     while lg.winner == 0: #until game ends
@@ -429,7 +428,7 @@ def game(file_name=None):
             cpm = pn.choose()
             count += 1
             data.append(100-int(pn.value[0]*100))
-            data2.append([(count, count), (100-int(pn.value[1][0]*100), 100-int(pn.value[1][1]*100))])
+            
 
             print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
             lg.add(cpm, 2)
@@ -447,16 +446,9 @@ def game(file_name=None):
 
 
 
-    a = True
-    for i in data2:
-        if a:
-            a = False
-            plt.plot(i[0], i[1], color="green", marker="o", label="max/min potential score at each turn", linestyle="--")
-        else:
-            plt.plot(i[0], i[1], color="green", marker="o", linestyle="--")
-    plt.plot(data, color="black", label="Player's actual heuristic score", marker="o")
-    plt.axis([1, len(data)-1, 1, 100])
     
+    plt.plot(data, color="black", label="Player's heuristic score at each turn", marker="o")
+    plt.axis([1, len(data)-1, 1, 100])
     plt.ylabel("Heuristic score for player (max: 100 min: 1)")
     plt.xlabel("Player turns")
     plt.suptitle("Heuristic score over the course of the game")
@@ -473,3 +465,4 @@ def game(file_name=None):
 
 
 print(game())
+
