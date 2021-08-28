@@ -39,6 +39,10 @@ class grid:
 
             #checking to see who won on a large/small board 
             board = copy.copy(self.board) if isinstance(self, small_grid) else np.array([x.winner for x in self.board.flat]).reshape((3, 3))
+            
+            if isinstance(self, small_grid):
+                board1 = copy.deepcopy(board)
+                board = np.array([x if x != 3 else 0 for x in self.board.flat]).reshape((3, 3))
 
             if list(board.flat).count(1)>2 or list(board.flat).count(2)>2 or not any(x==0 for x in board.flat): #more than 2 of either X or O
                 for i in range(2): 
@@ -62,7 +66,7 @@ class grid:
 
                 if isinstance(self, small_grid): #to see if small boards are tied
                     if self.winner == 0:
-                        if not any([x==0 for x in self.board.flat]):
+                        if not any([x==0 for x in board1.flat]):
                             self.winner = 3
 
             if isinstance(self, large_grid):
@@ -70,6 +74,7 @@ class grid:
                     test_grid = small_grid(None, 0)
                     count = 0
                     for num in (1, 2):
+                        test_grid.winner = 0
                         test_grid.board = np.array([sb.winner if sb.winner != 0 else num for sb in self.board.flat]).reshape((3, 3))
                         test_grid.referee()
                         if test_grid.winner == 3:
@@ -205,6 +210,9 @@ class parent_node:
 
         for child in self.children:
             child.MCTS()
+            if child.children == []:
+                child.board.to_file("error.csv")
+                raise ValueError
             child.board.referee()
             if child.board.winner == 2:
                 time.sleep(1) # for effect
@@ -342,12 +350,15 @@ class node:
                             new_board = copy.deepcopy(self.board)
                             new_board.add(i, abs(self.side-2)+1)
                             self.children.append(node(new_board, abs(self.side-2)+1, self, i)) #creates new child nodes
+                        
                     else:
                         for i in [x for y in self.board.board.flat for x in y.moves() if y.winner == 0]:
                             new_board = copy.deepcopy(self.board)
                             new_board.add(i, abs(self.side-2)+1)
                             self.children.append(node(new_board, abs(self.side-2)+1, self, i)) #creates new child nodes
-                
+                    
+                    if self.children == []:
+                        raise ValueError
                 #Step 1: Selection
                 child = None
                 if self.sim_num == 2:
@@ -425,9 +436,17 @@ def game(file_name=None):
                 pn = parent_node(lg)
             else:
                 pn = pn.new_parent(lg)
-            cpm = pn.choose()
+            try:
+                cpm = pn.choose()
+                exc = False
+            except Exception:
+                m = lg.active_grid.moves()
+                moves = (m if m != [] else [x for y in lg.board.flat for x in y.moves()]) 
+                exc = True
+                cpm = rd.choice(moves)
             count += 1
-            data.append(100-int(pn.value[0]*100))
+            if not exc:
+                data.append(100-int(pn.value[0]*100))
             
 
             print("the computer has played on square no.{} of section no.{}.".format(cpm[1][0]*3+cpm[1][1]+1, cpm[0][0]*3+cpm[0][1]+1))
