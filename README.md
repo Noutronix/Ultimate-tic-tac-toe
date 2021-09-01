@@ -40,7 +40,7 @@ How to use the program:
 The creation process/features:
 
 To create this program, I used a concept called "Monte Carlo Tree Search", which is essentially a method of finding the best move a player can make
-when a game has no built-in heuristic system or static evaluation function (such as chess or checkers). If you would like to know more about it, I would reccomend checking out 
+when a game has no built-in heuristic system or static evaluation function (unlike chess or checkers). If you would like to know more about it, I would reccomend checking out 
 its Wikipedia page: https://en.wikipedia.org/wiki/Monte_Carlo_tree_search. The program makes use of OOP to create the nodes that make up the search
 tree and to create the board itself. It also displays a Matplotlib graphic that shows the "heuristic" score of the player's moves once the game ends. 
 
