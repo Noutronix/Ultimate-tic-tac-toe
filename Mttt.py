@@ -210,9 +210,7 @@ class parent_node:
 
         for child in self.children:
             child.MCTS()
-            if child.children == []:
-                child.board.to_file("error.csv")
-                raise ValueError
+            
             child.board.referee()
             if child.board.winner == 2:
                 time.sleep(1) # for effect
@@ -222,9 +220,12 @@ class parent_node:
         
         num = (30 if len(self.children) < 10 else 45)
         st = time.time()
+        count = 0
         while time.time()-st < num:
+            count += 1
             child = sorted(self.children, key=lambda x:x.pickrate)[-1]
             child.MCTS()
+        print("c:", count, "t:", time.time()-st)
         
         self.successor = sorted(self.children, key=lambda x:x.value)[-1]
         v = sorted(self.successor.children, key=lambda x:x.value)
@@ -314,22 +315,35 @@ class node:
                     raise ValueError
                 
                 for num in order: 
-                    nb.active_grid.referee()
-                    if nb.active_grid.winner != 0: #if someone won/tied on active grid
-                        move = None
-                        for sb in sorted(nb.board.flat, key=lambda x:rd.random()):
-                            if sb.winner == 0:
-                                sb.referee()
-                                if sb.winner == 0:
-                                    move = rd.choice(sb.moves()) #random square in 9x9 grid (if active_grid is full)
-                                    break
+                    nb.referee()
+                    if nb.winner == 0:
+                        if nb.active_grid.winner != 0: #if someone won/tied on active grid
+                            group = []
+                            
+                            for sb in nb.board.flat:
+                                for i in sb.moves():
+                                    group.append(i)
 
-                        if move == None:
-                            nb.referee()
-                            break
-
+                        else:
+                            group = nb.active_grid.moves() #random square from active_grid
+                    
                     else:
-                        move = rd.choice(nb.active_grid.moves()) #random square from active_grid
+                        break
+
+                    move = None
+                    
+                    b = [x.winner for x in nb.board.flat]
+                    if b.count(1) > 1 or b.count(2) > 1:                   
+                        for i in group:
+                            nb2 = copy.deepcopy(nb)
+                            nb2.add(i, num)
+                            nb2.referee()
+                            if nb2.winner == num:
+                                move = i
+
+                    if move == None:
+                        move = rd.choice(group)
+                        
 
                     ag_coords = nb.active_grid.coords
                     nb.add(move, num) #automatically changes active_grid
@@ -484,4 +498,3 @@ def game(file_name=None):
 
 
 print(game())
-
